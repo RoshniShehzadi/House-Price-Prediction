@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>House Price Prediction</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #141e30, #243b55);
+            color: #222;
+        }
+
+        .container {
+            width: 95%;
+            max-width: 1100px;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 30px 35px 35px;
+            box-shadow: 0 18px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        .title {
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2a44;
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px 20px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .field label {
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .field input,
+        .field select {
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            outline: none;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            background-color: #f9fafb;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+            background-color: #ffffff;
+        }
+
+        .btn-row {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .btn-submit {
+            padding: 10px 28px;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 12px 20px rgba(37, 99, 235, 0.35);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 28px rgba(37, 99, 235, 0.45);
+        }
+
+        .btn-submit:active {
+            transform: translateY(1px);
+            box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3);
+        }
+
+        .prediction-box {
+            margin-top: 20px;
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+
+        .prediction-card {
+            display: inline-block;
+            padding: 14px 24px;
+            border-radius: 14px;
+            background: #ecfdf5;
+            border: 1px solid #6ee7b7;
+            color: #065f46;
+            font-weight: 600;
+            font-size: 16px;
+            box-shadow: 0 10px 18px rgba(16, 185, 129, 0.25);
+        }
+
+        .hint {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 18px 24px;
+            }
+            .title {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="title">House Price Prediction</div>
+    <div class="subtitle">
+        Enter the house details below and let the model estimate its price.
+    </div>
+
+    <form method="POST">
+        <!-- Bedrooms -->
+        <div class="field">
+            <label for="bedrooms">Bedrooms</label>
+            <input type="number" id="bedrooms" name="bedrooms" min="0" step="1" required>
+        </div>
+
+        <!-- Bathrooms -->
+        <div class="field">
+            <label for="bathrooms">Bathrooms</label>
+            <input type="number" id="bathrooms" name="bathrooms" min="0" step="0.25" required>
+        </div>
+
+        <!-- sqft_living -->
+        <div class="field">
+            <label for="sqft_living">Living Area (sqft_living)</label>
+            <input type="number" id="sqft_living" name="sqft_living" min="0" step="1" required>
+        </div>
+
+        <!-- sqft_lot -->
+        <div class="field">
+            <label for="sqft_lot">Lot Size (sqft_lot)</label>
+            <input type="number" id="sqft_lot" name="sqft_lot" min="0" step="1" required>
+        </div>
+
+        <!-- floors -->
+        <div class="field">
+            <label for="floors">Floors</label>
+            <input type="number" id="floors" name="floors" min="1" step="0.5" required>
+        </div>
+
+        <!-- waterfront -->
+        <div class="field">
+            <label for="waterfront">Waterfront (0 = No, 1 = Yes)</label>
+            <select id="waterfront" name="waterfront" required>
+                <option value="0">0 - No</option>
+                <option value="1">1 - Yes</option>
+            </select>
+        </div>
+
+        <!-- view -->
+        <div class="field">
+            <label for="view">View (0–4)</label>
+            <input type="number" id="view" name="view" min="0" max="4" step="1" required>
+            <div class="hint">Higher = better view</div>
+        </div>
+
+        <!-- condition -->
+        <div class="field">
+            <label for="condition">Condition (1–5)</label>
+            <input type="number" id="condition" name="condition" min="1" max="5" step="1" required>
+        </div>
+
+        <!-- grade -->
+        <div class="field">
+            <label for="grade">Grade (1–13)</label>
+            <input type="number" id="grade" name="grade" min="1" max="13" step="1" required>
+        </div>
+
+        <!-- sqft_above -->
+        <div class="field">
+            <label for="sqft_above">Area Above Ground (sqft_above)</label>
+            <input type="number" id="sqft_above" name="sqft_above" min="0" step="1" required>
+        </div>
+
+        <!-- sqft_basement -->
+        <div class="field">
+            <label for="sqft_basement">Basement Area (sqft_basement)</label>
+            <input type="number" id="sqft_basement" name="sqft_basement" min="0" step="1" required>
+        </div>
+
+        <!-- yr_built -->
+        <div class="field">
+            <label for="yr_built">Year Built</label>
+            <input type="number" id="yr_built" name="yr_built" min="1800" max="2025" step="1" required>
+        </div>
+
+        <!-- yr_renovated -->
+        <div class="field">
+            <label for="yr_renovated">Year Renovated (0 if never)</label>
+            <input type="number" id="yr_renovated" name="yr_renovated" min="0" max="2025" step="1" required>
+        </div>
+
+        <!-- zipcode -->
+        <div class="field">
+            <label for="zipcode">Zipcode</label>
+            <input type="number" id="zipcode" name="zipcode" min="0" step="1" required>
+        </div>
+
+        <!-- lat -->
+        <div class="field">
+            <label for="lat">Latitude (lat)</label>
+            <input type="number" id="lat" name="lat" step="0.000001" required>
+        </div>
+
+        <!-- long -->
+        <div class="field">
+            <label for="long">Longitude (long)</label>
+            <input type="number" id="long" name="long" step="0.000001" required>
+        </div>
+
+        <!-- sqft_living15 -->
+        <div class="field">
+            <label for="sqft_living15">Avg Living Area of Neighbors (sqft_living15)</label>
+            <input type="number" id="sqft_living15" name="sqft_living15" min="0" step="1" required>
+        </div>
+
+        <!-- sqft_lot15 -->
+        <div class="field">
+            <label for="sqft_lot15">Avg Lot Size of Neighbors (sqft_lot15)</label>
+            <input type="number" id="sqft_lot15" name="sqft_lot15" min="0" step="1" required>
+        </div>
+
+        <!-- year_sold -->
+        <div class="field">
+            <label for="year_sold">Year Sold (year_sold)</label>
+            <input type="number" id="year_sold" name="year_sold" min="2000" max="2030" step="1" required>
+        </div>
+
+        <!-- month_sold -->
+        <div class="field">
+            <label for="month_sold">Month Sold (1–12)</label>
+            <input type="number" id="month_sold" name="month_sold" min="1" max="12" step="1" required>
+        </div>
+
+        <!-- Submit button -->
+        <div class="btn-row">
+            <button type="submit" class="btn-submit">Predict Price</button>
+        </div>
+
+        <!-- Prediction result -->
+        <div class="prediction-box">
+            {% if prediction_text %}
+                <div class="prediction-card">
+                    {{ prediction_text }}
+                </div>
+            {% endif %}
+        </div>
+    </form>
+</div>
+</body>
+</html>
