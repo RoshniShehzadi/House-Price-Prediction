@@ -171,10 +171,3 @@ artifact = {
 
 joblib.dump(artifact, "house_price_gradient_boosting_kfold.pkl")
 print("\nFinal Gradient Boosting model saved to 'house_price_gradient_boosting_kfold.pkl'")
-
-# ===== FINAL MODEL COMPARISON (K-Fold averages) =====
-#                Model       MAE_mean  ...      RMSE_mean      RMSE_std
-# 3  Gradient Boosting  146840.256963  ...  226078.791125  15423.328890
-# 2      Random Forest  150442.352429  ...  232691.418167  15878.745522
-# 0  Linear Regression  161344.213622  ...  247526.119292  17647.249541
-# 1      Decision Tree  195760.221904  ...  311367.674147  15780.337259
