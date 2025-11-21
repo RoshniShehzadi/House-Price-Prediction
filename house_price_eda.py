@@ -1,84 +1,180 @@
 import pandas as pd
 import numpy as np
 
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import KFold
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.base import clone
+import joblib
 
-# 1. Load data
+# ===============================
+# 1) Load dataset
+# ===============================
 df = pd.read_csv("kc_house_data.csv")
 
-# ---- Quick EDA (optional but useful) ----
-print(df.shape)      # rows, columns
-print(df.head())     # first 5 rows
-
-print("\nData types and non-null counts:")
+print(df.shape)
+print(df.head())
+print("\nInfo:")
 df.info()
 
-print("\nSummary statistics (numerical columns):")
-print(df.describe())
-
-# 2. Convert 'date' to datetime and create numeric date features
+# ===============================
+# 2) Date handling (NO dropping before correlation)
+# ===============================
 df["date"] = pd.to_datetime(df["date"], format="%Y%m%dT%H%M%S")
+
+# Create numeric date features
 df["year_sold"] = df["date"].dt.year
 df["month_sold"] = df["date"].dt.month
+df["day_sold"] = df["date"].dt.day
 
-# 3. Drop raw 'date' and 'id' (not useful as feature)
-df = df.drop(columns=["date", "id"])
+# Numeric representation of date for correlation
+df["date_numeric"] = df["date"].astype("int64")   # nanoseconds since epoch
 
-# 4. Define features (X) and target (y)
 target = "price"
-feature_cols = [col for col in df.columns if col != target]
 
-X = df[feature_cols]
+# ===============================
+# 3) Correlation analysis
+# ===============================
+corr_matrix = df.corr(numeric_only=True)
+
+print("\n=== Correlation with price (sorted) ===")
+target_corr = corr_matrix[target].sort_values(ascending=False)
+print(target_corr)
+
+# ===============================
+# 4) Select features strongly related to price
+#    (close to -1 or +1)
+# ===============================
+# You can change this to 0.6 / 0.7 / 0.8 if you want stricter selection
+strong_threshold = 0.5   # |corr| >= 0.5
+
+strong_features = [
+    col for col in target_corr.index
+    if col != target and abs(target_corr[col]) >= strong_threshold
+]
+
+print(f"\nUsing correlation threshold |corr| >= {strong_threshold}")
+print("Selected strongly correlated features:")
+print(strong_features)
+
+# X / y with only strongly correlated features
+X = df[strong_features]
 y = df[target]
 
-print("\nFeature columns:")
-print(feature_cols)
-print("\nX shape:", X.shape, " | y shape:", y.shape)
+n_samples = len(X)
+print("\nTotal samples:", n_samples)
+print("X shape:", X.shape, " | y shape:", y.shape)
 
-# 5. Train–test split
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+# ===============================
+# 5) Define K under constraints
+#    - k <= 10
+#    - each fold >= 30 instances
+# ===============================
+max_splits_by_size = n_samples // 30   # each fold has at least 30 samples
+if max_splits_by_size < 2:
+    raise ValueError(
+        f"Not enough samples ({n_samples}) to have even 2 folds "
+        f"with >= 30 instances each."
+    )
 
-# 6. Define and train Random Forest model
-rf = RandomForestRegressor(
-    n_estimators=300,
-    random_state=42,
-    n_jobs=-1
-)
+k = min(10, max_splits_by_size)
+print(f"\nUsing K-Fold with k = {k} folds (each fold >= 30 instances)")
 
-rf.fit(X_train, y_train)
+kf = KFold(n_splits=k, shuffle=True, random_state=42)
 
-# 7. Predict on test set
-y_pred = rf.predict(X_test)
+# ===============================
+# 6) Gradient Boosting model
+# ===============================
+base_model = GradientBoostingRegressor(random_state=42)
 
-# 8. Evaluation metrics
-mae = mean_absolute_error(y_test, y_pred)
-rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-r2 = r2_score(y_test, y_pred)
+fold_mae = []
+fold_mse = []
+fold_rmse = []
 
-print("\n=== RandomForestRegressor performance ===")
-print("MAE :", mae)
-print("RMSE:", rmse)
-print("R²  :", r2)
+fold_num = 1
 
-# 9. Feature importance
+# ===============================
+# 7) K-Fold Cross-Validation
+# ===============================
+for train_idx, test_idx in kf.split(X):
+    print(f"\n===== Fold {fold_num} / {k} =====")
+
+    X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+    model = clone(base_model)
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+
+    fold_mae.append(mae)
+    fold_mse.append(mse)
+    fold_rmse.append(rmse)
+
+    print(f"MAE  (fold {fold_num}): {mae:.4f}")
+    print(f"MSE  (fold {fold_num}): {mse:.4f}")
+    print(f"RMSE (fold {fold_num}): {rmse:.4f}")
+
+    fold_num += 1
+
+# ===============================
+# 8) Overall K-Fold performance
+# ===============================
+mae_mean = np.mean(fold_mae)
+mae_std  = np.std(fold_mae)
+mse_mean = np.mean(fold_mse)
+mse_std  = np.std(fold_mse)
+rmse_mean = np.mean(fold_rmse)
+rmse_std  = np.std(fold_rmse)
+
+print("\n===== FINAL GRADIENT BOOSTING PERFORMANCE (K-FOLD AVERAGES) =====")
+print(f"MAE  mean ± std : {mae_mean:.4f} ± {mae_std:.4f}")
+print(f"MSE  mean ± std : {mse_mean:.4f} ± {mse_std:.4f}")
+print(f"RMSE mean ± std : {rmse_mean:.4f} ± {rmse_std:.4f}")
+
+# ===============================
+# 9) Train FINAL model on ALL data
+# ===============================
+final_model = clone(base_model)
+final_model.fit(X, y)
+
+# Optional: feature importance
 feature_importances = pd.Series(
-    rf.feature_importances_,
-    index=feature_cols
+    final_model.feature_importances_,
+    index=strong_features
 ).sort_values(ascending=False)
 
-print("\nTop 10 important features according to RandomForest:")
-print(feature_importances.head(10))
+print("\n=== Gradient Boosting Feature Importances (final model) ===")
+print(feature_importances)
 
-import joblib 
-# 9. Save model to .pkl
-model_artifact = {
-    "model": rf,
-    "features": feature_cols
+# ===============================
+# 10) Save final model
+# ===============================
+artifact = {
+    "model": final_model,
+    "features": strong_features,
+    "k_folds": k,
+    "corr_threshold": strong_threshold,
+    "cv_metrics": {
+        "MAE_mean": mae_mean,
+        "MAE_std": mae_std,
+        "MSE_mean": mse_mean,
+        "MSE_std": mse_std,
+        "RMSE_mean": rmse_mean,
+        "RMSE_std": rmse_std
+    }
 }
 
-joblib.dump(model_artifact, "house_price_rf_model.pkl")
-print("\nModel saved to 'house_price_rf_model.pkl'")
+joblib.dump(artifact, "house_price_gradient_boosting_kfold.pkl")
+print("\nFinal Gradient Boosting model saved to 'house_price_gradient_boosting_kfold.pkl'")
+
+# ===== FINAL MODEL COMPARISON (K-Fold averages) =====
+#                Model       MAE_mean  ...      RMSE_mean      RMSE_std
+# 3  Gradient Boosting  146840.256963  ...  226078.791125  15423.328890
+# 2      Random Forest  150442.352429  ...  232691.418167  15878.745522
+# 0  Linear Regression  161344.213622  ...  247526.119292  17647.249541
+# 1      Decision Tree  195760.221904  ...  311367.674147  15780.337259
