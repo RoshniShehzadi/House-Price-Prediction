@@ -7,7 +7,7 @@ app = Flask(__name__)
 print(">>> Starting app.py")  # debug print so we know file is running
 
 # Load model + feature columns
-artifact = joblib.load("house_price_rf_model.pkl")
+artifact = joblib.load("house_price_gradient_boosting_kfold.pkl")
 model = artifact["model"]
 feature_cols = artifact["features"]  # list of feature names
 
